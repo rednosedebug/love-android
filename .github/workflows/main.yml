@@ -65,3 +65,25 @@ jobs:
       with:
         name: love-android-unstripped-debugsyms-${{ matrix.build_type }}
         path: app/build/intermediates/cxx
+    - name: Collect FFmpeg CMake diagnostic
+      # app/.cxx/** is CMake's actual working directory (CMAKE_BINARY_DIR)
+      # and is NOT the same tree as app/build/intermediates/cxx above, which
+      # only contains obj/ and logs/, not files CMake writes directly via
+      # file(WRITE/APPEND ...). This step finds and copies our diagnostic
+      # file (written by megasource/CMakeLists.txt's FFmpeg block) from
+      # wherever it actually landed, so it survives as its own artifact
+      # regardless of which specific hashed subdirectory CMake used this run.
+      if: always()
+      run: |
+        mkdir -p /tmp/ffmpeg-diagnostic
+        find app/.cxx -iname "ffmpeg-cmake-diagnostic.txt" -exec cp {} /tmp/ffmpeg-diagnostic/ \; || true
+        find app/.cxx -iname "ffmpeg-cmake-diagnostic.txt" | tee /tmp/ffmpeg-diagnostic/_found-paths.txt || true
+        if [ ! -s /tmp/ffmpeg-diagnostic/_found-paths.txt ]; then
+          echo "NOT FOUND anywhere under app/.cxx" > /tmp/ffmpeg-diagnostic/_found-paths.txt
+        fi
+    - name: Artifact (FFmpeg CMake diagnostic)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ffmpeg-cmake-diagnostic-${{ matrix.build_type }}
+        path: /tmp/ffmpeg-diagnostic
