@@ -34,11 +34,17 @@ android {
                 // Same root cause applies to the prebuilt FFmpeg .so files (ffmpeg_avutil,
                 // ffmpeg_avcodec, ffmpeg_avformat, ffmpeg_swscale, ffmpeg_swresample), which
                 // love_video_mp4 / love_sound_lullaby depend on transitively via
-                // lovedep::FFmpeg. List them explicitly too, or they silently get left out of
-                // the APK and love.video.newVideoStream()/love.audio.newSource() will crash at
-                // runtime with a "library not found" dlopen error for an MP4 file, even though
-                // the app compiled successfully.
-                targets "love_android", "OpenAL", "love", "ffmpeg_avutil", "ffmpeg_avcodec", "ffmpeg_avformat", "ffmpeg_swscale", "ffmpeg_swresample"
+                // lovedep::FFmpeg. HOWEVER: unlike "love"/"OpenAL", these targets are only
+                // created conditionally inside megasource/CMakeLists.txt's
+                // if(EXISTS ${FFLIB_SO}) check -- if the .so isn't found at configure time,
+                // the target is never created, and Gradle's target validation then fails
+                // the ENTIRE build with "Unexpected native build target ffmpeg_avutil.
+                // Valid values are: ...", since it doesn't exist under any configuration.
+                // Temporarily removed from this explicit list until we've confirmed (via
+                // ffmpeg-cmake-diagnostic.txt) whether the .so files are actually being
+                // found; once confirmed, re-add them here AND make sure they don't break
+                // the build when the .so genuinely isn't present for some ABI/config combo.
+                targets "love_android", "OpenAL", "love"
             }
         }
 
