@@ -6,7 +6,13 @@ plugins {
 
 android {
     namespace "org.love2d.android"
-    ndkVersion '27.1.12297006'
+    // Pinned to match the exact NDK used to cross-compile the bundled
+    // FFmpeg .so files (see megasource/libs/FFmpeg/). Mixing NDK versions
+    // between love/megasource's own native code and a prebuilt library
+    // like FFmpeg risks ABI/CRT mismatches, so keep this in lockstep with
+    // whatever NDK was used for the FFmpeg build until FFmpeg is rebuilt
+    // for other ABIs/NDK versions too.
+    ndkVersion '26.1.10909125'
 
     defaultConfig {
         applicationId project.properties["app.application_id"]
@@ -24,13 +30,27 @@ android {
                 // account. This result in liboboe.so and libluajit.so not get included into the final
                 // APK. "love" target depends on LuaJIT, and "OpenAL" target depends on oboe::oboe
                 // (which provides liboboe.so). So, add "OpenAL" and "love" target.
-                targets "love_android", "OpenAL", "love"
+                //
+                // Same root cause applies to the prebuilt FFmpeg .so files (ffmpeg_avutil,
+                // ffmpeg_avcodec, ffmpeg_avformat, ffmpeg_swscale, ffmpeg_swresample), which
+                // love_video_mp4 / love_sound_lullaby depend on transitively via
+                // lovedep::FFmpeg. List them explicitly too, or they silently get left out of
+                // the APK and love.video.newVideoStream()/love.audio.newSource() will crash at
+                // runtime with a "library not found" dlopen error for an MP4 file, even though
+                // the app compiled successfully.
+                targets "love_android", "OpenAL", "love", "ffmpeg_avutil", "ffmpeg_avcodec", "ffmpeg_avformat", "ffmpeg_swscale", "ffmpeg_swresample"
             }
         }
 
         ndk {
             //noinspection ChromeOsAbiSupport
-            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'
+            // Restricted to arm64-v8a only: this is the only ABI we have
+            // a prebuilt FFmpeg .so for (see megasource/libs/FFmpeg/ and
+            // MP4_SUPPORT_README.md). Re-add 'armeabi-v7a'/'x86_64' once
+            // FFmpeg has been cross-compiled for those ABIs too, alongside
+            // adding the corresponding .so files under
+            // megasource/libs/FFmpeg/android/<abi>/lib/.
+            abiFilters 'arm64-v8a'
             debugSymbolLevel 'full'
         }
 
