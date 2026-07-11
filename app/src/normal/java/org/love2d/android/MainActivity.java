@@ -25,11 +25,14 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.InputType;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -40,7 +43,10 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.Executor;
@@ -49,6 +55,25 @@ import java.util.zip.ZipFile;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
+
+    // Minimal stub so a freshly created project already runs without
+    // erroring, instead of forcing the user to write boilerplate before
+    // they can even open it in GameActivity.
+    private static final String MAIN_LUA_STUB =
+        "function love.load()\n" +
+        "end\n" +
+        "\n" +
+        "function love.update(dt)\n" +
+        "end\n" +
+        "\n" +
+        "function love.draw()\n" +
+        "    love.graphics.print(\"Hello, LOVE!\", 400, 300)\n" +
+        "end\n";
+
+    private static final String CONF_LUA_STUB =
+        "function love.conf(t)\n" +
+        "    t.window.title = \"My LOVE Game\"\n" +
+        "end\n";
 
     private final Executor executor = Executors.newSingleThreadExecutor();
 
@@ -63,16 +88,21 @@ public class MainActivity extends AppCompatActivity {
         }
     );
 
+    private GameListAdapter adapter;
+    private ConstraintLayout noGameText;
+    private SwipeRefreshLayout swipeLayout;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         RecyclerView recyclerView = findViewById(R.id.recyclerView);
-        SwipeRefreshLayout swipeLayout = findViewById(R.id.swipeRefreshLayout);
-        ConstraintLayout noGameText = findViewById(R.id.constraintLayout);
+        swipeLayout = findViewById(R.id.swipeRefreshLayout);
+        noGameText = findViewById(R.id.constraintLayout);
+        FloatingActionButton fabNewProject = findViewById(R.id.fabNewProject);
 
-        GameListAdapter adapter = new GameListAdapter();
+        adapter = new GameListAdapter();
 
         // Set refresh listener
         swipeLayout.setOnRefreshListener(() -> {
@@ -82,6 +112,8 @@ public class MainActivity extends AppCompatActivity {
         // Set layout manager and adapter
         recyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
         recyclerView.setAdapter(adapter);
+
+        fabNewProject.setOnClickListener(v -> getNewProjectDialog().show());
 
         scanGames(adapter, noGameText, null);
     }
@@ -133,6 +165,69 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return builder.setMessage(message.toString()).create();
+    }
+
+    private AlertDialog getNewProjectDialog() {
+        EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        input.setHint(R.string.new_project_name_hint);
+
+        return new AlertDialog.Builder(this)
+            .setTitle(R.string.new_project)
+            .setView(input)
+            .setPositiveButton(R.string.create, (dialog, which) -> {
+                String name = input.getText().toString().trim();
+                if (name.isEmpty()) {
+                    Toast.makeText(this, R.string.new_project_name_empty, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                createNewProject(name);
+            })
+            .setNegativeButton(R.string.close, null)
+            .create();
+    }
+
+    private void createNewProject(String name) {
+        executor.execute(() -> {
+            File gamesDir = getExternalFilesDir("games");
+            if (gamesDir == null) {
+                return;
+            }
+
+            File projectDir = new File(gamesDir, name);
+
+            if (projectDir.exists()) {
+                runOnUiThread(() ->
+                    Toast.makeText(this, R.string.new_project_already_exists, Toast.LENGTH_SHORT).show());
+                return;
+            }
+
+            boolean created = projectDir.mkdirs();
+            if (!created) {
+                Log.e(TAG, "Failed to create project directory: " + projectDir);
+                runOnUiThread(() ->
+                    Toast.makeText(this, R.string.new_project_creation_failed, Toast.LENGTH_SHORT).show());
+                return;
+            }
+
+            try {
+                writeStubFile(new File(projectDir, "main.lua"), MAIN_LUA_STUB);
+                writeStubFile(new File(projectDir, "conf.lua"), CONF_LUA_STUB);
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to write stub files", e);
+                runOnUiThread(() ->
+                    Toast.makeText(this, R.string.new_project_creation_failed, Toast.LENGTH_SHORT).show());
+                return;
+            }
+
+            runOnUiThread(() -> scanGames(adapter, noGameText, swipeLayout));
+        });
+    }
+
+    private static void writeStubFile(File file, String content) throws IOException {
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.write(content);
+        }
     }
 
     @SuppressLint("NotifyDataSetChanged")

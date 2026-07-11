@@ -13,4 +13,19 @@
     <string name="game_folder_location">The game folder is located in your internal storage at Android/data/%1$s/files/games.</string>
     <string name="game_folder_accessible">The folder should be accessible with your favorite file manager.</string>
     <string name="game_folder_inaccessible">Unfortunately the folder is only accessible through MTP in PC.</string>
+    <string name="copy_path">Copy Path</string>
+    <string name="close">Close</string>
+    <string name="new_project">New Project</string>
+    <string name="new_project_name_hint">Project name</string>
+    <string name="create">Create</string>
+    <string name="new_project_name_empty">Please enter a project name</string>
+    <string name="new_project_already_exists">A project with that name already exists</string>
+    <string name="new_project_creation_failed">Failed to create project</string>
+    <string name="row_menu_description">More options</string>
+    <string name="row_menu_backup">Save Backup</string>
+    <string name="row_menu_create_love">Create .love</string>
+    <string name="row_menu_backup_done">Backup saved as %1$s</string>
+    <string name="row_menu_backup_failed">Failed to create backup</string>
+    <string name="row_menu_already_love">This is already a .love file</string>
+    <string name="row_menu_create_love_failed">Failed to create .love file</string>
 </resources>
